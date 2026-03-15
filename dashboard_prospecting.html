@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spacefoot — Dashboard Prospecting</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f5f5f3;
+    --surface: #ffffff;
+    --surface2: #f0efeb;
+    --text: #1a1a18;
+    --text2: #6b6b67;
+    --text3: #9e9e99;
+    --border: rgba(0,0,0,0.09);
+    --green: #1D9E75;
+    --red: #D85A30;
+    --blue: #378ADD;
+    --gray: #888780;
+    --purple: #7F77DD;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+  body {
+    font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 32px 24px;
+  }
+  header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  header h1 { font-size: 20px; font-weight: 500; letter-spacing: -0.3px; }
+  header span { font-size: 12px; color: var(--text3); }
+  #last-update { font-size: 12px; color: var(--text3); }
+
+  .grid-kpi {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .kpi {
+    background: var(--surface2);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+  }
+  .kpi-label { font-size: 11px; color: var(--text2); margin-bottom: 6px; }
+  .kpi-value { font-size: 28px; font-weight: 500; line-height: 1; }
+  .kpi-sub { font-size: 11px; color: var(--text3); margin-top: 4px; }
+  .kpi-value.green { color: var(--green); }
+  .kpi-value.red { color: var(--red); }
+  .kpi-value.blue { color: var(--blue); }
+
+  .grid-charts {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+  .grid-charts-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+  @media (max-width: 680px) {
+    .grid-charts, .grid-charts-2 { grid-template-columns: 1fr; }
+  }
+
+  .card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+  }
+  .card-title {
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 4px;
+    color: var(--text);
+  }
+  .card-sub {
+    font-size: 11px;
+    color: var(--text3);
+    margin-bottom: 14px;
+  }
+  .chart-wrap { position: relative; width: 100%; }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 10px;
+    font-size: 11px;
+    color: var(--text2);
+  }
+  .legend span { display: flex; align-items: center; gap: 5px; }
+  .legend-dot { width: 9px; height: 9px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
+
+  .ab-row { margin-bottom: 14px; }
+  .ab-row:last-child { margin-bottom: 0; }
+  .ab-meta { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 5px; }
+  .ab-meta-label { color: var(--text2); }
+  .ab-meta-label em { color: var(--text3); font-style: normal; }
+  .ab-meta-value { font-weight: 500; color: var(--text); }
+  .bar-track { background: var(--surface2); border-radius: 4px; height: 8px; width: 100%; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
+  .ab-note { font-size: 11px; color: var(--text3); margin-top: 10px; }
+
+  #loading {
+    position: fixed; inset: 0;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; color: var(--text2);
+    z-index: 100;
+  }
+  #error-msg {
+    background: #fff0ed;
+    border: 0.5px solid #f0a090;
+    border-radius: var(--radius-sm);
+    padding: 12px 16px;
+    font-size: 13px;
+    color: #993c1d;
+    margin-bottom: 20px;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<div id="loading">Chargement des données...</div>
+<div id="error-msg"></div>
+
+<header>
+  <h1>Prospecting — Spacefoot</h1>
+  <span id="last-update"></span>
+</header>
+
+<div class="grid-kpi">
+  <div class="kpi">
+    <div class="kpi-label">Total envoyés</div>
+    <div class="kpi-value blue" id="kpi-total">—</div>
+    <div class="kpi-sub" id="kpi-period">—</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Envoyés aujourd'hui</div>
+    <div class="kpi-value" id="kpi-today">—</div>
+    <div class="kpi-sub" id="kpi-today-sub">—</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Réponses totales</div>
+    <div class="kpi-value" id="kpi-replies">—</div>
+    <div class="kpi-sub" id="kpi-reply-rate">—</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Positives</div>
+    <div class="kpi-value green" id="kpi-pos">—</div>
+    <div class="kpi-sub" id="kpi-pos-rate">—</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Négatives</div>
+    <div class="kpi-value red" id="kpi-neg">—</div>
+    <div class="kpi-sub" id="kpi-neg-rate">—</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Neutres</div>
+    <div class="kpi-value" id="kpi-neu">—</div>
+    <div class="kpi-sub">des réponses</div>
+  </div>
+</div>
+
+<div class="grid-charts">
+  <div class="card">
+    <div class="card-title">Envois par jour</div>
+    <div class="card-sub" id="chart-daily-sub">—</div>
+    <div class="chart-wrap" style="height:200px;"><canvas id="chartDaily"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Répartition réponses</div>
+    <div class="card-sub">sur les réponses reçues</div>
+    <div class="chart-wrap" style="height:160px;"><canvas id="chartPie"></canvas></div>
+    <div class="legend" id="pie-legend"></div>
+  </div>
+</div>
+
+<div class="grid-charts-2">
+  <div class="card">
+    <div class="card-title">A/B test — template</div>
+    <div class="card-sub">taux de réponse et taux positif</div>
+    <div id="ab-content"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Par commercial</div>
+    <div class="card-sub">envois · réponses · positifs</div>
+    <div class="chart-wrap" id="comm-wrap"><canvas id="chartComm"></canvas></div>
+  </div>
+</div>
+
+<script>
+const SHEET_ID = '1dThC-9LHNR8uC-dFxdibsELcOnEpB7E0X6Pvqr3wyKM';
+const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0`;
+
+const gridColor = 'rgba(0,0,0,0.05)';
+const labelColor = '#9e9e99';
+
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  const headers = lines[0].split(',').map(h => h.trim().replace(/\r/g,''));
+  return lines.slice(1).map(line => {
+    const vals = line.split(',');
+    const obj = {};
+    headers.forEach((h, i) => { obj[h] = (vals[i] || '').trim().replace(/\r/g,''); });
+    return obj;
+  });
+}
+
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function fmt(n) { return n.toLocaleString('fr-FR'); }
+
+let chartDailyInst, chartPieInst, chartCommInst;
+
+function buildDashboard(rows) {
+  const today = todayStr();
+  const total = rows.length;
+  const todayRows = rows.filter(r => r.date_envoi === today);
+  const replied = rows.filter(r => r.reponse_etat && r.reponse_etat !== '' && r.reponse_etat !== 'null');
+  const pos = rows.filter(r => r.reponse_etat === 'positif');
+  const neg = rows.filter(r => r.reponse_etat === 'negatif');
+  const neu = rows.filter(r => r.reponse_etat === 'neutre');
+
+  const dates = [...new Set(rows.map(r => r.date_envoi))].filter(Boolean).sort();
+  const minDate = dates[0]; const maxDate = dates[dates.length-1];
+
+  document.getElementById('kpi-total').textContent = fmt(total);
+  document.getElementById('kpi-period').textContent = `depuis le ${minDate.split('-').reverse().join('/')}`;
+  document.getElementById('kpi-today').textContent = fmt(todayRows.length);
+  document.getElementById('kpi-today-sub').textContent = todayRows.length > 0 ? `envoyés le ${today.split('-').reverse().join('/')}` : 'aucun envoi aujourd\'hui';
+  document.getElementById('kpi-replies').textContent = fmt(replied.length);
+  document.getElementById('kpi-reply-rate').textContent = `taux ${(replied.length/total*100).toFixed(1)}%`;
+  document.getElementById('kpi-pos').textContent = fmt(pos.length);
+  document.getElementById('kpi-pos-rate').textContent = `${replied.length ? Math.round(pos.length/replied.length*100) : 0}% des réponses`;
+  document.getElementById('kpi-neg').textContent = fmt(neg.length);
+  document.getElementById('kpi-neg-rate').textContent = `${replied.length ? Math.round(neg.length/replied.length*100) : 0}% des réponses`;
+  document.getElementById('kpi-neu').textContent = fmt(neu.length);
+
+  document.getElementById('last-update').textContent = `Mis à jour le ${new Date().toLocaleString('fr-FR')}`;
+  document.getElementById('chart-daily-sub').textContent = `${minDate.split('-').reverse().join('/')} → ${maxDate.split('-').reverse().join('/')}`;
+
+  // Daily chart
+  const byDate = {};
+  dates.forEach(d => { byDate[d] = rows.filter(r => r.date_envoi === d).length; });
+  const dayLabels = dates.map(d => d.slice(5).split('-').reverse().join('/'));
+
+  if (chartDailyInst) chartDailyInst.destroy();
+  chartDailyInst = new Chart(document.getElementById('chartDaily'), {
+    type: 'bar',
+    data: {
+      labels: dayLabels,
+      datasets: [{
+        data: dates.map(d => byDate[d]),
+        backgroundColor: '#378ADD',
+        borderRadius: 5,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: labelColor, font: { size: 11 }, autoSkip: false, maxRotation: 45 } },
+        y: { grid: { color: gridColor }, ticks: { color: labelColor, font: { size: 11 } } }
+      }
+    }
+  });
+
+  // Pie chart
+  if (chartPieInst) chartPieInst.destroy();
+  chartPieInst = new Chart(document.getElementById('chartPie'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Positif','Négatif','Neutre'],
+      datasets: [{ data: [pos.length, neg.length, neu.length], backgroundColor: ['#1D9E75','#D85A30','#888780'], borderWidth: 0, hoverOffset: 4 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '68%',
+      plugins: { legend: { display: false } }
+    }
+  });
+  document.getElementById('pie-legend').innerHTML = [
+    ['#1D9E75', `Positif ${pos.length}`],
+    ['#D85A30', `Négatif ${neg.length}`],
+    ['#888780', `Neutre ${neu.length}`]
+  ].map(([c,l]) => `<span><span class="legend-dot" style="background:${c}"></span>${l}</span>`).join('');
+
+  // A/B
+  const aRows = rows.filter(r => r.template_send === 'A');
+  const bRows = rows.filter(r => r.template_send === 'B');
+  const aRep = aRows.filter(r => r.reponse_etat && r.reponse_etat !== '' && r.reponse_etat !== 'null');
+  const bRep = bRows.filter(r => r.reponse_etat && r.reponse_etat !== '' && r.reponse_etat !== 'null');
+  const aPos = aRows.filter(r => r.reponse_etat === 'positif');
+  const bPos = bRows.filter(r => r.reponse_etat === 'positif');
+  const aRate = aRows.length ? (aRep.length/aRows.length*100) : 0;
+  const bRate = bRows.length ? (bRep.length/bRows.length*100) : 0;
+  const aPosRate = aRows.length ? (aPos.length/aRows.length*100) : 0;
+  const bPosRate = bRows.length ? (bPos.length/bRows.length*100) : 0;
+  const maxRate = Math.max(aRate, bRate, 0.1);
+
+  document.getElementById('ab-content').innerHTML = `
+    <div class="ab-row">
+      <div class="ab-meta">
+        <span class="ab-meta-label">Template A <em>(${fmt(aRows.length)} envois)</em></span>
+        <span class="ab-meta-value">${aRate.toFixed(1)}% rép · ${aPosRate.toFixed(1)}% pos</span>
+      </div>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.max(aRate/maxRate*100,2)}%;background:#378ADD"></div></div>
+    </div>
+    <div class="ab-row">
+      <div class="ab-meta">
+        <span class="ab-meta-label">Template B <em>(${fmt(bRows.length)} envois)</em></span>
+        <span class="ab-meta-value">${bRate.toFixed(1)}% rép · ${bPosRate.toFixed(1)}% pos</span>
+      </div>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.max(bRate/maxRate*100,2)}%;background:#7F77DD"></div></div>
+    </div>
+    <p class="ab-note">${Math.abs(aRate - bRate) < 0.5 ? 'A et B strictement équivalents pour l\'instant — continuer à collecter.' : (aRate > bRate ? 'Template A en tête.' : 'Template B en tête.')}</p>
+  `;
+
+  // Commercial chart
+  const comms = [...new Set(rows.map(r => r.nom_commercial))].filter(Boolean);
+  const commData = comms.map(c => {
+    const cr = rows.filter(r => r.nom_commercial === c);
+    return {
+      name: c.split(' ')[0],
+      total: cr.length,
+      rep: cr.filter(r => r.reponse_etat && r.reponse_etat !== '' && r.reponse_etat !== 'null').length,
+      pos: cr.filter(r => r.reponse_etat === 'positif').length
+    };
+  }).sort((a,b) => b.total - a.total);
+
+  const commWrap = document.getElementById('comm-wrap');
+  commWrap.style.height = Math.max(commData.length * 44 + 60, 160) + 'px';
+
+  if (chartCommInst) chartCommInst.destroy();
+  chartCommInst = new Chart(document.getElementById('chartComm'), {
+    type: 'bar',
+    indexAxis: 'y',
+    data: {
+      labels: commData.map(c => c.name),
+      datasets: [
+        { label: 'Envois', data: commData.map(c => c.total), backgroundColor: '#B5D4F4', borderRadius: 3, borderSkipped: false },
+        { label: 'Réponses', data: commData.map(c => c.rep), backgroundColor: '#378ADD', borderRadius: 3, borderSkipped: false },
+        { label: 'Positifs', data: commData.map(c => c.pos), backgroundColor: '#1D9E75', borderRadius: 3, borderSkipped: false }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: gridColor }, ticks: { color: labelColor, font: { size: 11 } } },
+        y: { grid: { display: false }, ticks: { color: labelColor, font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+async function loadData() {
+  try {
+    const resp = await fetch(CSV_URL);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const text = await resp.text();
+    const rows = parseCSV(text);
+    document.getElementById('loading').style.display = 'none';
+    buildDashboard(rows);
+  } catch(e) {
+    document.getElementById('loading').style.display = 'none';
+    const err = document.getElementById('error-msg');
+    err.style.display = 'block';
+    err.textContent = 'Impossible de charger les données. Vérifie que le Google Sheet est bien public en lecture. (' + e.message + ')';
+  }
+}
+
+loadData();
+setInterval(loadData, 5 * 60 * 1000);
+</script>
+</body>
+</html>
