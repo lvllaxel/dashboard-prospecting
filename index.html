@@ -250,10 +250,11 @@ function buildDashboard(rows) {
   const today = todayStr();
   const total = rows.length;
   const todayRows = rows.filter(r => r.date_envoi === today);
-  const replied = rows.filter(r => r.reponse_etat && r.reponse_etat !== '' && r.reponse_etat !== 'null');
+  const replied = rows.filter(r => r.reponse_etat && r.reponse_etat !== '');
   const pos = rows.filter(r => r.reponse_etat === 'positif');
   const neg = rows.filter(r => r.reponse_etat === 'negatif');
   const neu = rows.filter(r => r.reponse_etat === 'neutre');
+  const noncl = rows.filter(r => r.reponse_etat === 'null');
 
   const dates = [...new Set(rows.map(r => r.date_envoi))].filter(Boolean).sort();
   const minDate = dates[0]; const maxDate = dates[dates.length-1];
@@ -269,6 +270,8 @@ function buildDashboard(rows) {
   document.getElementById('kpi-neg').textContent = fmt(neg.length);
   document.getElementById('kpi-neg-rate').textContent = `${replied.length ? Math.round(neg.length/replied.length*100) : 0}% des réponses`;
   document.getElementById('kpi-neu').textContent = fmt(neu.length);
+  // update replies count with null included
+
 
   document.getElementById('last-update').textContent = `Mis à jour le ${new Date().toLocaleString('fr-FR')}`;
   document.getElementById('chart-daily-sub').textContent = `${minDate.split('-').reverse().join('/')} → ${maxDate.split('-').reverse().join('/')}`;
@@ -306,7 +309,7 @@ function buildDashboard(rows) {
     type: 'doughnut',
     data: {
       labels: ['Positif','Négatif','Neutre'],
-      datasets: [{ data: [pos.length, neg.length, neu.length], backgroundColor: ['#1D9E75','#D85A30','#888780'], borderWidth: 0, hoverOffset: 4 }]
+      datasets: [{ data: [pos.length, neg.length, neu.length, noncl.length], backgroundColor: ['#1D9E75','#D85A30','#888780','#B5D4F4'], borderWidth: 0, hoverOffset: 4 }]
     },
     options: {
       responsive: true, maintainAspectRatio: false, cutout: '68%',
@@ -317,13 +320,14 @@ function buildDashboard(rows) {
     ['#1D9E75', `Positif ${pos.length}`],
     ['#D85A30', `Négatif ${neg.length}`],
     ['#888780', `Neutre ${neu.length}`]
+  , ['#B5D4F4', `Non classifié ${noncl.length}`]
   ].map(([c,l]) => `<span><span class="legend-dot" style="background:${c}"></span>${l}</span>`).join('');
 
   // A/B
   const aRows = rows.filter(r => r.template_send === 'A');
   const bRows = rows.filter(r => r.template_send === 'B');
-  const aRep = aRows.filter(r => r.reponse_etat && r.reponse_etat !== '' && r.reponse_etat !== 'null');
-  const bRep = bRows.filter(r => r.reponse_etat && r.reponse_etat !== '' && r.reponse_etat !== 'null');
+  const aRep = aRows.filter(r => r.reponse_etat && r.reponse_etat !== '');
+  const bRep = bRows.filter(r => r.reponse_etat && r.reponse_etat !== '');
   const aPos = aRows.filter(r => r.reponse_etat === 'positif');
   const bPos = bRows.filter(r => r.reponse_etat === 'positif');
   const aRate = aRows.length ? (aRep.length/aRows.length*100) : 0;
@@ -357,7 +361,7 @@ function buildDashboard(rows) {
     return {
       name: c.split(' ')[0],
       total: cr.length,
-      rep: cr.filter(r => r.reponse_etat && r.reponse_etat !== '' && r.reponse_etat !== 'null').length,
+      rep: cr.filter(r => r.reponse_etat && r.reponse_etat !== '').length,
       pos: cr.filter(r => r.reponse_etat === 'positif').length
     };
   }).sort((a,b) => b.total - a.total);
