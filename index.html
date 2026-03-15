@@ -206,8 +206,8 @@
 </div>
 
 <script>
-const SHEET_ID = '1dThC-9LHNR8uC-dFxdibsELcOnEpB7E0X6Pvqr3wyKM';
-const CSV_URL = `https://corsproxy.io/?url=https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`;
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzp0puH9k4b__D5WfkrSfUmX9Q2WnpDhxQLA0ufiqnFqQMKNd08yQ_4J6AiWRVsMFRFSQ/exec';
+// CSV_URL replaced by APPS_SCRIPT_URL above
 
 const gridColor = 'rgba(0,0,0,0.05)';
 const labelColor = '#9e9e99';
@@ -390,17 +390,25 @@ function buildDashboard(rows) {
 
 async function loadData() {
   try {
-    const resp = await fetch(CSV_URL);
+    const resp = await fetch(APPS_SCRIPT_URL);
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    const text = await resp.text();
-    const rows = parseCSV(text);
+    const rows = await resp.json();
+    // Normalize keys
+    const normalized = rows.map(row => {
+      const obj = {};
+      Object.keys(row).forEach(k => {
+        const nk = k.toString().toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g,'_').replace(/^_|_$/g,'');
+        obj[nk] = row[k] === null || row[k] === undefined ? '' : String(row[k]);
+      });
+      return obj;
+    });
     document.getElementById('loading').style.display = 'none';
-    buildDashboard(rows);
+    buildDashboard(normalized);
   } catch(e) {
     document.getElementById('loading').style.display = 'none';
     const err = document.getElementById('error-msg');
     err.style.display = 'block';
-    err.textContent = 'Impossible de charger les données. Vérifie que le Google Sheet est bien public en lecture. (' + e.message + ')';
+    err.textContent = 'Impossible de charger les données. (' + e.message + ')';
   }
 }
 
