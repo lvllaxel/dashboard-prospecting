@@ -330,7 +330,7 @@ function buildDashboard(rows) {
   const bRate = bRows.length ? (bRep.length/bRows.length*100) : 0;
   const aPosRate = aRows.length ? (aPos.length/aRows.length*100) : 0;
   const bPosRate = bRows.length ? (bPos.length/bRows.length*100) : 0;
-  const maxRate = Math.max(aRate, bRate, 0.1);
+  const maxRate = 20;
 
   document.getElementById('ab-content').innerHTML = `
     <div class="ab-row">
